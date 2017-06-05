@@ -3,8 +3,17 @@ var fortune = require('./lib/fortune.js');
 var app = express();
 var bodyParser = require('body-parser')
 var formidable = require('formidable');
-var jqupload = require('jquery-file-upload-middleware');
+var credentials = require('./credentials.js');
+var cookieParser = require('cookie-parser')
+var session = require('express-session')
 
+//app.use(cookieParser(credentials.secret));
+app.use(session({
+  cookie: {  },
+  secret: credentials.cookieSecret,
+  resave: false,
+  saveUninitialized: true
+}))
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
 
@@ -26,18 +35,7 @@ app.set('port', process.env.PORT || 3000);
 
 app.use(express.static(__dirname + '/public'));
 
-// app.use('/upload', function(req, res, next){
-//   console.log('upload');
-//   var now = Date.now();
-//   jqupload.fileHandler({
-//     uploadDir: function(){
-//       return __dirname + '/public/uploads/' + now;
-//     },
-//     uploadUrl: function(){
-//       return '/uploads/' + now;
-//     },
-//   })(req, res, next);
-// });
+
 
 // set 'showTests' context property if the querystring contains test=1
 app.use(function(req, res, next){
@@ -86,22 +84,6 @@ app.get('/', function(req, res) {
 	res.render('home');
 });
 
-app.get('/upload', function(req, res){
-  res.render('contest/jq-upload');
-})
-
-app.post('/upload', function(req, res, next){
-  console.log('upload');
-  var now = Date.now();
-  jqupload.fileHandler({
-    uploadDir: function(){
-      return __dirname + '/public/uploads/' + now;
-    },
-    uploadUrl: function(){
-      return '/uploads/' + now;
-    },
-  })(req, res, next);
-});
 
 app.get('/about', function(req,res){
 	res.render('about', {

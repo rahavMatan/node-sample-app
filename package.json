@@ -21,8 +21,10 @@
     "chai": "",
     "express": "",
     "express-handlebars": "",
+    "express-session": "^1.15.3",
     "formidable": "^1.1.1",
-    "jquery-file-upload-middleware": "^0.1.8"
+    "jquery-file-upload-middleware": "^0.1.8",
+    "nodemailer": "^4.0.1"
   },
   "devDependencies": {}
 }
