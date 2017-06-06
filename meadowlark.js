@@ -8,19 +8,19 @@ var cookieParser = require('cookie-parser')
 var session = require('express-session')
 var http =require('http');
 
-switch(app.get('env')){
-  case 'development':
-  // compact, colorful dev logging
-    app.use(require('morgan')('dev'));
-    break;
-  case 'production':
-  // module 'express-logger' supports daily log rotation
-    app.use(require('express-logger')({
-      path: __dirname + '/log/requests.log'
-     })
-    );
-    break;
-}
+// switch(app.get('env')){
+//   case 'development':
+//   // compact, colorful dev logging
+//     app.use(require('morgan')('dev'));
+//     break;
+//   case 'production':
+//   // module 'express-logger' supports daily log rotation
+//     app.use(require('express-logger')({
+//       path: __dirname + '/log/requests.log'
+//      })
+//     );
+//     break;
+// }
 //app.use(cookieParser(credentials.secret));  !! session doesn't require this module anymore
 app.use(session({
   cookie: {},
@@ -154,6 +154,11 @@ app.post('/contest/vacation-photo/:year/:month', function(req, res){
   });
 });
 
+app.get('/fail', function(req, res){
+  throw new Error('Nope!');
+});
+
+
 app.get('/jquery-test', function(req, res){
 	res.render('jquery-test');
 });
@@ -184,7 +189,7 @@ app.use(function(err, req, res, next){
 
 function startServer() {
 
-  http.createServer(app).listen(app.get('port'), function(){
+  http.createServer().listen(app.get('port'), function(){
     console.log( 'Express started in ' + app.get('env') +
                   ' mode on http://localhost:' + app.get('port') +
                   '; press Ctrl-C to terminate.' );
@@ -193,6 +198,7 @@ function startServer() {
 
 if(require.main === module){
 // application run directly; start app server
+  console.log('main');
   startServer();
 } else {
 // application imported as a module via "require": export function
