@@ -6,7 +6,18 @@ var formidable = require('formidable');
 var credentials = require('./credentials.js');
 var cookieParser = require('cookie-parser')
 var session = require('express-session')
+var fs = require('fs');
+var mongoose = require('mongoose');
+var opts = {
+  server: {
+    socketOptions: { keepAlive: 1 }
+  }
+};
+var Vacation = require('./models/vacation.js');
 
+mongoose.connect(credentials.mongo.development.connectionString, opts,function(err){
+  console.log(err || "connected to DB");
+});
 //app.use(cookieParser(credentials.secret));
 app.use(session({
   cookie: {  },
@@ -121,16 +132,47 @@ app.get('/contest/vacation-photo',function(req,res){
   });
 });
 
+var dataDir = __dirname + '/data';
+var vacationPhotoDir = dataDir + '/vacation-photo';
+fs.existsSync(dataDir) || fs.mkdirSync(dataDir);
+fs.existsSync(vacationPhotoDir) || fs.mkdirSync(vacationPhotoDir);
+
+function saveContestEntry(contestName, email, year, month, photoPath){
+  console.log("saving");
+}
+
 app.post('/contest/vacation-photo/:year/:month', function(req, res){
   var form = new formidable.IncomingForm();
   form.parse(req, function(err, fields, files){
     if(err) return res.redirect(303, '/error');
+    if(err) {
+      res.session.flash = {
+        type: 'danger',
+        intro: 'Oops!',
+        message: 'There was an error processing your submission. ' +
+        'Pelase try again.',
+      };
+      return res.redirect(303, '/contest/vacation-photo');
+    }
+    var photo = files.photo;
+    var dir = 'C:/node-app/data' + '/' + Date.now();  // !!renameSync will fail if the file is on a diffrent partition / Drive !!
+    var path = dir + '/' + photo.name;
+    fs.mkdirSync(dir);
+    console.log(photo.path);
+    fs.renameSync(photo.path, path);
+    saveContestEntry('vacation-photo', fields.email, req.params.year, req.params.month, path);
+    req.session.flash = {
+      type: 'success',
+      intro: 'Good luck!',
+      message: 'You have been entered into the contest.'
+    };
+    return res.redirect(303, '/contest/vacation-photo/entries');
+  });
+});
 
-    console.log('received fields:');
-    console.log(fields);
-    console.log('received files:');
-    console.log(files);
-    res.redirect(303, '/thank-you');
+app.get('/epic-fail', function(req, res){
+  process.nextTick(function(){
+    throw new Error('Kaboom!');
   });
 });
 
