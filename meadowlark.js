@@ -6,10 +6,24 @@ var formidable = require('formidable');
 var credentials = require('./credentials.js');
 var cookieParser = require('cookie-parser')
 var session = require('express-session')
+var http =require('http');
 
-//app.use(cookieParser(credentials.secret));
+switch(app.get('env')){
+  case 'development':
+  // compact, colorful dev logging
+    app.use(require('morgan')('dev'));
+    break;
+  case 'production':
+  // module 'express-logger' supports daily log rotation
+    app.use(require('express-logger')({
+      path: __dirname + '/log/requests.log'
+     })
+    );
+    break;
+}
+//app.use(cookieParser(credentials.secret));  !! session doesn't require this module anymore
 app.use(session({
-  cookie: {  },
+  cookie: {},
   secret: credentials.cookieSecret,
   resave: false,
   saveUninitialized: true
@@ -35,7 +49,11 @@ app.set('port', process.env.PORT || 3000);
 
 app.use(express.static(__dirname + '/public'));
 
-
+app.use(function(req,res,next){
+  var cluster = require('cluster');
+  if(cluster.isWorker)
+    console.log('Worker %d received request',  cluster.worker.id);
+});
 
 // set 'showTests' context property if the querystring contains test=1
 app.use(function(req, res, next){
@@ -73,6 +91,7 @@ function getWeatherData(){
     };
 }
 
+
 // middleware to add weather data to context
 app.use(function(req, res, next){
 	if(!res.locals.partials) res.locals.partials = {};
@@ -105,6 +124,7 @@ app.get('/newsletter', function(req, res){
 
   res.render('newsletter', { csrf: 'CSRF token goes here' });
 });
+
 
 app.post('/process', function(req, res){
   if(req.xhr || req.accepts('json,html')==='json'){
@@ -162,7 +182,25 @@ app.use(function(err, req, res, next){
 	res.render('500');
 });
 
-app.listen(app.get('port'), function(){
-  console.log( 'Express started on http://localhost:' +
-    app.get('port') + '; press Ctrl-C to terminate.' );
-});
+function startServer() {
+
+  http.createServer(app).listen(app.get('port'), function(){
+    console.log( 'Express started in ' + app.get('env') +
+                  ' mode on http://localhost:' + app.get('port') +
+                  '; press Ctrl-C to terminate.' );
+  });
+}
+
+if(require.main === module){
+// application run directly; start app server
+  startServer();
+} else {
+// application imported as a module via "require": export function
+// to create server
+  module.exports = startServer;
+}
+// app.listen(app.get('port'), function(){
+//   console.log( 'Express started in ' + app.get('env').toUpperCase() +
+// ' mode on http://localhost:' + app.get('port') +
+// '; press Ctrl-C to terminate.' );
+// });
