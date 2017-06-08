@@ -24,7 +24,7 @@ var opts = {
 };
 //mongoose.Promise = global.Promise;
 mongoose.connect(credentials.mongo.development.connectionString, opts,function(err){
-  console.log(err || "connected to DB");
+  console.log(err || " \n connected to DB");
 });
 
 var store = new MongoDBStore(
@@ -61,6 +61,7 @@ app.set('port', process.env.PORT || 3000);
 app.use(express.static(__dirname + '/public'));
 
 
+require('./routes.js')(app);
 
 // set 'showTests' context property if the querystring contains test=1
 app.use(function(req, res, next){
@@ -105,161 +106,6 @@ app.use(function(req, res, next){
  	next();
 });
 
-app.get('/', function(req, res) {
-	res.render('home');
-});
-
-
-app.get('/about', function(req,res){
-	res.render('about', {
-		fortune: fortune.getFortune(),
-		pageTestScript: '/qa/tests-about.js'
-	} );
-});
-app.get('/tours/hood-river', function(req, res){
-	res.render('tours/hood-river');
-});
-app.get('/tours/oregon-coast', function(req, res){
-	res.render('tours/oregon-coast');
-});
-app.get('/tours/request-group-rate', function(req, res){
-	res.render('tours/request-group-rate');
-});
-
-app.get('/newsletter', function(req, res){
-
-  res.render('newsletter', { csrf: 'CSRF token goes here' });
-});
-
-app.post('/process', function(req, res){
-  if(req.xhr || req.accepts('json,html')==='json'){
-    res.send({ success: true });
-  } else {
-    res.redirect(303, '/thank-you');
-  }
-});
-
-app.get('/contest/vacation-photo',function(req,res){
-  var now = new Date();
-  res.render('contest/vacation-photo',{
-    year: now.getFullYear(),month: now.getMonth()
-  });
-});
-
-var dataDir = __dirname + '/data';
-var vacationPhotoDir = dataDir + '/vacation-photo';
-fs.existsSync(dataDir) || fs.mkdirSync(dataDir);
-fs.existsSync(vacationPhotoDir) || fs.mkdirSync(vacationPhotoDir);
-
-function saveContestEntry(contestName, email, year, month, photoPath){
-  console.log("saving");
-}
-
-app.post('/contest/vacation-photo/:year/:month', function(req, res){
-  var form = new formidable.IncomingForm();
-  form.parse(req, function(err, fields, files){
-    if(err) return res.redirect(303, '/error');
-    if(err) {
-      res.session.flash = {
-        type: 'danger',
-        intro: 'Oops!',
-        message: 'There was an error processing your submission. ' +
-        'Pelase try again.',
-      };
-      return res.redirect(303, '/contest/vacation-photo');
-    }
-    var photo = files.photo;
-    var dir = 'C:/node-app/data' + '/' + Date.now();  // !!renameSync will fail if the file is on a diffrent partition / Drive !!
-    var path = dir + '/' + photo.name;
-    fs.mkdirSync(dir);
-    console.log(photo.path);
-    fs.renameSync(photo.path, path);
-    saveContestEntry('vacation-photo', fields.email, req.params.year, req.params.month, path);
-    req.session.flash = {
-      type: 'success',
-      intro: 'Good luck!',
-      message: 'You have been entered into the contest.'
-    };
-    return res.redirect(303, '/contest/vacation-photo/entries');
-  });
-});
-function convertFromUSD(value, currency){
-  switch(currency){
-    case 'USD': return value * 1;
-    case 'GBP': return value * 0.6;
-    case 'BTC': return value * 0.0023707918444761;
-    default: return NaN;
-  }
-}
-app.get('/set-currency/:currency', function(req,res){
-  //console.log(req.params.currency);
-  req.session.currency = req.params.currency;
-  console.log(req.session.currency);
-  return res.redirect(303, '/vacations');
-});
-
-app.get('/vacations', function(req, res){
-  //console.log(req.session.currency);
-
-  Vacation.find({ available: true }, function(err, vacations){
-    var currency = req.session.currency || 'USD';
-    var context = {
-      currency: currency,
-      vacations: vacations.map(function(vacation){
-        return {
-          sku: vacation.sku,
-          name: vacation.name,
-          description: vacation.description,
-          inSeason: vacation.inSeason,
-          price: convertFromUSD(vacation.priceInCents/100, currency),
-          qty: vacation.qty,
-        }
-      })
-   };
-    switch(currency){
-      case 'USD': context.currencyUSD = 'selected'; break;
-      case 'GBP': context.currencyGBP = 'selected'; break;
-      case 'BTC': context.currencyBTC = 'selected'; break;
-    }
-  res.render('vacations', context);
-  });
-});
-
-
-
-app.get('/notify-me-when-in-season', function(req, res){
-  res.render('notify-me-when-in-season', { sku: req.query.sku });
-});
-
-app.post('/notify-me-when-in-season', function(req, res){
-  VacationInSeasonListener.update(
-    { email: req.body.email },
-    { $push: { skus: req.body.sku } },
-    { upsert: true },
-    function(err){
-      if(err) {
-        console.error(err.stack);
-        req.session.flash = {
-          type: 'danger',
-          intro: 'Ooops!',
-          message: 'There was an error processing your request.',
-        };
-        return res.redirect(303, '/vacations');
-      }
-      console.log("no error");
-      req.session.flash = {
-        type: 'success',
-        intro: 'Thank you!',
-        message: 'You will be notified when this vacation is in season.'
-      };
-      return res.redirect(303, '/vacations');
-    }
-  );
-});
-
-app.get('/jquery-test', function(req, res){
-	res.render('jquery-test');
-});
 
 
 // 404 catch-all handler (middleware)
