@@ -60,8 +60,73 @@ app.set('port', process.env.PORT || 3000);
 
 app.use(express.static(__dirname + '/public'));
 
+app.use('/api', require('cors')());
 
 require('./routes.js')(app);
+
+var Attraction = require('./models/attraction.js');
+
+var Rest = require('connect-rest')
+
+var apiOptions = {
+  context: '/api',
+  domain: require('domain').create()
+};
+var rest = Rest.create( apiOptions )
+app.use(rest.processRequest());
+
+rest.get('/attractions', function(req, content, cb){
+    Attraction.find({ approved: true }, function(err, attractions){
+        if(err) return cb({ error: 'Internal error.' });
+        cb(null, attractions.map(function(a){
+            return {
+                name: a.name,
+                description: a.description,
+                location: a.location,
+            };
+        }));
+    });
+});
+
+rest.post('/attraction', function(req, content, cb){
+    var a = new Attraction({
+        name: req.body.name,
+        description: req.body.description,
+        location: { lat: req.body.lat, lng: req.body.lng },
+        history: {
+            event: 'created',
+            email: req.body.email,
+            date: new Date(),
+        },
+        approved: false,
+    });
+    a.save(function(err, a){
+        if(err) return cb({ error: 'Unable to add attraction.' });
+        cb(null, { id: a._id });
+    });
+});
+
+rest.get('/attraction/:id', function(req, content, cb){
+    Attraction.findById(req.params.id, function(err, a){
+        if(err) return cb({ error: 'Unable to retrieve attraction.' });
+        cb(null, {
+            name: a.name,
+            description: a.description,
+            location: a.location,
+        });
+    });
+});
+apiOptions.domain.on('error', function(err){
+  console.log('API domain error.\n', err.stack);
+  setTimeout(function(){
+    console.log('Server shutting down after API domain error.');
+    process.exit(1);
+  }, 5000);
+  server.close();
+  var worker = require('cluster').worker;
+  if(worker) worker.disconnect();
+});
+
 
 // set 'showTests' context property if the querystring contains test=1
 app.use(function(req, res, next){
