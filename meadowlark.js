@@ -1,6 +1,7 @@
 var express = require('express');
-var fortune = require('./lib/fortune.js');
 var app = express();
+var fortune = require('./lib/fortune.js');
+
 var bodyParser = require('body-parser')
 var formidable = require('formidable');
 var credentials = require('./credentials.js');
@@ -8,23 +9,36 @@ var cookieParser = require('cookie-parser')
 var session = require('express-session')
 var fs = require('fs');
 var mongoose = require('mongoose');
+var Vacation = require('./models/vacation.js');
+var VacationInSeasonListener = require('./models/vacationInSeasonListener.js');
+var MongoDBStore = require('connect-mongodb-session')(session);
+
 var opts = {
   server: {
     socketOptions: { keepAlive: 1 }
+  },
+  auth:{
+    username:credentials.mongo.development.username,
+    password:credentials.mongo.development.password
   }
 };
-var Vacation = require('./models/vacation.js');
-
+//mongoose.Promise = global.Promise;
 mongoose.connect(credentials.mongo.development.connectionString, opts,function(err){
   console.log(err || "connected to DB");
 });
-//app.use(cookieParser(credentials.secret));
-app.use(session({
-  cookie: {  },
-  secret: credentials.cookieSecret,
-  resave: false,
-  saveUninitialized: true
-}))
+
+var store = new MongoDBStore(
+    {
+      uri: credentials.mongo.development.connectionString,
+      collection: 'mySessions'
+    }
+);
+app.use(require('express-session')({
+      secret: 'This is a secret',
+      store: store,
+      resave: true,
+      saveUninitialized: true
+}));
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
 
@@ -169,27 +183,84 @@ app.post('/contest/vacation-photo/:year/:month', function(req, res){
     return res.redirect(303, '/contest/vacation-photo/entries');
   });
 });
+function convertFromUSD(value, currency){
+  switch(currency){
+    case 'USD': return value * 1;
+    case 'GBP': return value * 0.6;
+    case 'BTC': return value * 0.0023707918444761;
+    default: return NaN;
+  }
+}
+app.get('/set-currency/:currency', function(req,res){
+  //console.log(req.params.currency);
+  req.session.currency = req.params.currency;
+  console.log(req.session.currency);
+  return res.redirect(303, '/vacations');
+});
 
-app.get('/epic-fail', function(req, res){
-  process.nextTick(function(){
-    throw new Error('Kaboom!');
+app.get('/vacations', function(req, res){
+  //console.log(req.session.currency);
+
+  Vacation.find({ available: true }, function(err, vacations){
+    var currency = req.session.currency || 'USD';
+    var context = {
+      currency: currency,
+      vacations: vacations.map(function(vacation){
+        return {
+          sku: vacation.sku,
+          name: vacation.name,
+          description: vacation.description,
+          inSeason: vacation.inSeason,
+          price: convertFromUSD(vacation.priceInCents/100, currency),
+          qty: vacation.qty,
+        }
+      })
+   };
+    switch(currency){
+      case 'USD': context.currencyUSD = 'selected'; break;
+      case 'GBP': context.currencyGBP = 'selected'; break;
+      case 'BTC': context.currencyBTC = 'selected'; break;
+    }
+  res.render('vacations', context);
   });
+});
+
+
+
+app.get('/notify-me-when-in-season', function(req, res){
+  res.render('notify-me-when-in-season', { sku: req.query.sku });
+});
+
+app.post('/notify-me-when-in-season', function(req, res){
+  VacationInSeasonListener.update(
+    { email: req.body.email },
+    { $push: { skus: req.body.sku } },
+    { upsert: true },
+    function(err){
+      if(err) {
+        console.error(err.stack);
+        req.session.flash = {
+          type: 'danger',
+          intro: 'Ooops!',
+          message: 'There was an error processing your request.',
+        };
+        return res.redirect(303, '/vacations');
+      }
+      console.log("no error");
+      req.session.flash = {
+        type: 'success',
+        intro: 'Thank you!',
+        message: 'You will be notified when this vacation is in season.'
+      };
+      return res.redirect(303, '/vacations');
+    }
+  );
 });
 
 app.get('/jquery-test', function(req, res){
 	res.render('jquery-test');
 });
-app.get('/nursery-rhyme', function(req, res){
-	res.render('nursery-rhyme');
-});
-app.get('/data/nursery-rhyme', function(req, res){
-	res.json({
-		animal: 'squirrel',
-		bodyPart: 'tail',
-		adjective: 'bushy',
-		noun: 'heck',
-	});
-});
+
 
 // 404 catch-all handler (middleware)
 app.use(function(req, res, next){
@@ -206,5 +277,5 @@ app.use(function(err, req, res, next){
 
 app.listen(app.get('port'), function(){
   console.log( 'Express started on http://localhost:' +
-    app.get('port') + '; press Ctrl-C to terminate.' );
+    app.get('port') + '; press Ctrl-C to terminate. \n' );
 });
