@@ -27,11 +27,14 @@
     "express-handlebars": "",
     "express-session": "^1.15.3",
     "formidable": "^1.1.1",
+    "grunt": "^1.0.1",
+    "grunt-contrib-less": "^1.4.1",
     "jquery-file-upload-middleware": "^0.1.8",
     "loadtest": "^2.3.0",
     "mongoose": "^4.10.4",
     "nodemailer": "^4.0.1",
-    "session-mongoose": "^0.5.2"
+    "session-mongoose": "^0.5.2",
+    "vhost": "^3.0.2"
   },
   "devDependencies": {
     "restler": "^3.4.0"

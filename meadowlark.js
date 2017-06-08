@@ -1,7 +1,7 @@
 var express = require('express');
 var app = express();
 var fortune = require('./lib/fortune.js');
-
+var vhost = require('vhost');
 var bodyParser = require('body-parser')
 var formidable = require('formidable');
 var credentials = require('./credentials.js');
@@ -46,7 +46,11 @@ app.use(bodyParser.json())
 var handlebars = require('express-handlebars').create({
     defaultLayout:'main',
     helpers: {
-        section: function(name, options){
+      static: function(name) {
+        //console.log(name);
+        return require('./lib/static.js').map(name);
+      },
+      section: function(name, options){
             if(!this._sections) this._sections = {};
             this._sections[name] = options.fn(this);
             return null;
@@ -74,6 +78,8 @@ var apiOptions = {
 };
 var rest = Rest.create( apiOptions )
 app.use(rest.processRequest());
+
+//app.use( vhost('api.*', rest.processRequest() ) );
 
 rest.get('/attractions', function(req, content, cb){
     Attraction.find({ approved: true }, function(err, attractions){
@@ -126,6 +132,7 @@ apiOptions.domain.on('error', function(err){
   var worker = require('cluster').worker;
   if(worker) worker.disconnect();
 });
+
 
 
 // set 'showTests' context property if the querystring contains test=1
