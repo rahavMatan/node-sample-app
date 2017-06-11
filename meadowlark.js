@@ -33,6 +33,7 @@ var store = new MongoDBStore(
       collection: 'mySessions'
     }
 );
+
 app.use(require('express-session')({
       secret: 'This is a secret',
       store: store,
@@ -80,6 +81,7 @@ var rest = Rest.create( apiOptions )
 app.use(rest.processRequest());
 
 //app.use( vhost('api.*', rest.processRequest() ) );
+
 
 rest.get('/attractions', function(req, content, cb){
     Attraction.find({ approved: true }, function(err, attractions){
@@ -133,6 +135,23 @@ apiOptions.domain.on('error', function(err){
   if(worker) worker.disconnect();
 });
 
+app.use(function(req, res, next){
+  console.log('weather');
+	if(!res.locals.partials) res.locals.partials = {};
+ 	res.locals.partials.weatherContext = getWeatherData();
+ 	next();
+});
+
+var static = require('./lib/static.js').map;
+
+app.use(function(req, res, next){
+	var now = new Date();
+  console.log(now);
+	res.locals.logoImage = now.getMonth()==11 && now.getDate()==19 ?
+	static('/img/logo_bud_clark.png') :
+	static('/img/logo.png');
+	next();
+});
 
 
 // set 'showTests' context property if the querystring contains test=1
@@ -172,11 +191,6 @@ function getWeatherData(){
 }
 
 // middleware to add weather data to context
-app.use(function(req, res, next){
-	if(!res.locals.partials) res.locals.partials = {};
- 	res.locals.partials.weatherContext = getWeatherData();
- 	next();
-});
 
 
 

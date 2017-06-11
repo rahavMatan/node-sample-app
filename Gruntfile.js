@@ -24,9 +24,8 @@ module.exports = function(grunt){
 			options: {
 				customFunctions: {
 					static: function(lessObject, name) {
-						return 'url("' +
-							require('./lib/static.js').map(name.value) +
-							'")';
+							console.log("static");
+							return 'url("' + require('./lib/static.js').map(name.value) +'")';
 					}
 				}
 			},
@@ -38,5 +37,5 @@ module.exports = function(grunt){
 	});
 
 	// register tasks
-	grunt.registerTask('default', ['cafemocha','jshint','exec']);
+	grunt.registerTask('default', ['less']);
 };
